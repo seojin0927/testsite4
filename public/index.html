@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MedixCloud | 스마트 의료·원격진료 & EMR 포털</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Hospital Header -->
+    <header class="topbar">
+      <div class="brand">
+        <span class="icon">🏥</span>
+        <div class="title-wrap">
+          <h1>Medix<span>Cloud</span></h1>
+          <p>Smart Telemedicine & EMR Portal v3.4</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge-role">인증 세션: <strong>김민준 (환자 / patient-101)</strong></span>
+        <span class="badge-port">PORT: <strong>3004</strong></span>
+        <span class="badge-danger">🚨 취약점 21종 탑재</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="main-content">
+      <!-- 21 Vulnerabilities Test Matrix -->
+      <section class="panel matrix-panel">
+        <div class="panel-header">
+          <h2>🚨 MedixCloud 실전 취약점 21종 원클릭 검증 매트릭스</h2>
+          <span class="panel-subtitle">버튼 클릭 시 포트 3004의 실제 취약한 백엔드 API를 격발하여 침투를 실증합니다.</span>
+        </div>
+
+        <div class="matrix-grid">
+          <!-- 1. SQLi Search -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-crit">CRITICAL</span>
+              <span class="cwe-pill">CWE-89</span>
+            </div>
+            <h3>1. EMR 차트 검색 SQLi</h3>
+            <p>검색창에 <code>' OR '1'='1</code> 입력 시 전체 환자 기밀 질병 이력 덤프</p>
+            <button class="btn-exploit" data-vuln="sqli-search">⚡ SQLi 격발</button>
+          </div>
+
+          <!-- 2. SQLi POST -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-crit">CRITICAL</span>
+              <span class="cwe-pill">CWE-89</span>
+            </div>
+            <h3>2. 처방전 조회 SQLi</h3>
+            <p>POST 본문 rxCode에 따옴표 주입으로 처방 테이블 조작</p>
+            <button class="btn-exploit" data-vuln="sqli-post">⚡ POST SQLi 격발</button>
+          </div>
+
+          <!-- 3. BOLA / IDOR -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-crit">CRITICAL</span>
+              <span class="cwe-pill">CWE-639</span>
+            </div>
+            <h3>3. BOLA 타인 처방전 열람</h3>
+            <p>patient-101 세션으로 타 환자(patient-103) 향정신성 처방전 무단 열람</p>
+            <button class="btn-exploit" data-vuln="bola">⚡ BOLA 격발</button>
+          </div>
+
+          <!-- 4. BFLA -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-862</span>
+            </div>
+            <h3>4. BFLA 마약류 처방전 승인</h3>
+            <p>일반 환자 권한으로 관리자/의사 승인 전용 처방전 강제 승인</p>
+            <button class="btn-exploit" data-vuln="bfla">⚡ BFLA 격발</button>
+          </div>
+
+          <!-- 5. SSRF -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-crit">CRITICAL</span>
+              <span class="cwe-pill">CWE-918</span>
+            </div>
+            <h3>5. SSRF PACS 영상 웹훅</h3>
+            <p>의료 영상 수신 파라미터로 <code>169.254.169.254</code> AWS IAM 키 탈취</p>
+            <button class="btn-exploit" data-vuln="ssrf">⚡ SSRF 격발</button>
+          </div>
+
+          <!-- 6. Path Traversal -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-22</span>
+            </div>
+            <h3>6. Path Traversal CT 스캔</h3>
+            <p><code>../../package.json</code> 파일 시스템 상위 탈출로 소스 유출</p>
+            <button class="btn-exploit" data-vuln="traversal">⚡ Traversal 격발</button>
+          </div>
+
+          <!-- 7. Hardcoded Secrets -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-798</span>
+            </div>
+            <h3>7. EMR 마스터 KMS 키 노출</h3>
+            <p>소스코드 내 AWS KMS 키, HIPAA 암호화 키, DB 패스워드 노출</p>
+            <button class="btn-exploit" data-vuln="secrets">⚡ 시크릿 확인</button>
+          </div>
+
+          <!-- 8. Reflected XSS -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-79</span>
+            </div>
+            <h3>8. 진료 확인서 Reflected XSS</h3>
+            <p>환자 이름에 <code>&lt;script&gt;</code> 주입 시 스크립트 실행</p>
+            <button class="btn-exploit" data-vuln="xss-reflected">⚡ XSS 영수증 열기</button>
+          </div>
+
+          <!-- 9. Stored XSS -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-79</span>
+            </div>
+            <h3>9. 문진표 Stored XSS</h3>
+            <p>문진표 증상 메모에 저장된 악성 스크립트가 의사 차트에 지속 렌더링</p>
+            <button class="btn-exploit" data-vuln="xss-stored">⚡ 문진표 등록</button>
+          </div>
+
+          <!-- 10. CSRF -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-352</span>
+            </div>
+            <h3>10. CSRF 진료 예약 무단 취소</h3>
+            <p>Anti-CSRF 토큰 누락으로 외부 사이트 클릭 유도 시 예약 취소</p>
+            <button class="btn-exploit" data-vuln="csrf">⚡ CSRF 전송</button>
+          </div>
+
+          <!-- 11. Cleartext PHI -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-312</span>
+            </div>
+            <h3>11. 민감 건강 정보(PHI) 평문 저장</h3>
+            <p>주민등록번호(RRN), 혈액형, 암 진단명이 DB에 마스킹 없이 평문 저장</p>
+            <button class="btn-exploit" data-vuln="phi-cleartext">⚡ PHI 평문 열람</button>
+          </div>
+
+          <!-- 12. ReDoS -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-1333</span>
+            </div>
+            <h3>12. 의사 면허 검증 ReDoS</h3>
+            <p>악성 정규식 백트래킹으로 Node.js 이벤트 루프 지연 유발</p>
+            <button class="btn-exploit" data-vuln="redos">⚡ ReDoS 트리거</button>
+          </div>
+
+          <!-- 13. Open Redirect -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-med">MEDIUM</span>
+              <span class="cwe-pill">CWE-601</span>
+            </div>
+            <h3>13. 원격 진료 Open Redirect</h3>
+            <p>도메인 검증 없이 외부 피싱 사이트로 브라우저 강제 유인</p>
+            <button class="btn-exploit" data-vuln="open-redirect">⚡ 피싱 이동</button>
+          </div>
+
+          <!-- 14. Permissive CORS -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-942</span>
+            </div>
+            <h3>14. 와일드카드 CORS & Credentials</h3>
+            <p>임의 Origin을 반사하면서 Allow-Credentials: true 동시 허용</p>
+            <button class="btn-exploit" data-vuln="cors">⚡ CORS 테스트</button>
+          </div>
+
+          <!-- 15. Insecure Cookie -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-med">MEDIUM</span>
+              <span class="cwe-pill">CWE-614</span>
+            </div>
+            <h3>15. 안전하지 않은 세션 쿠키</h3>
+            <p>세션 쿠키에 httpOnly: false로 자바스크립트 탈취 허용</p>
+            <button class="btn-exploit" data-vuln="cookie">⚡ 쿠키 확인</button>
+          </div>
+
+          <!-- 16. Unprotected Cron -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-306</span>
+            </div>
+            <h3>16. 환자 백업 Cron 무단 실행</h3>
+            <p>CRON_SECRET 검증 없이 외부에서 대용량 데이터베이스 백업 덤프</p>
+            <button class="btn-exploit" data-vuln="cron-backup">⚡ 백업 덤프</button>
+          </div>
+
+          <!-- 17. No Rate Limit 2FA -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-770</span>
+            </div>
+            <h3>17. 무제한 2FA OTP 대입</h3>
+            <p>호출 제한(Rate Limit) 부재로 무작위 6자리 OTP 무차별 대입</p>
+            <button class="btn-exploit" data-vuln="otp-bruteforce">⚡ OTP 브루트포스</button>
+          </div>
+
+          <!-- 18. Race Condition -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-med">MEDIUM</span>
+              <span class="cwe-pill">CWE-362</span>
+            </div>
+            <h3>18. 진료 예약 동시성 결함</h3>
+            <p>트랜잭션 락 부재로 동일 시간대에 2명 환자 동시 선점 충돌</p>
+            <button class="btn-exploit" data-vuln="race-condition">⚡ 동시 예약 전송</button>
+          </div>
+
+          <!-- 19. Stack Trace Leak -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-med">MEDIUM</span>
+              <span class="cwe-pill">CWE-209</span>
+            </div>
+            <h3>19. 진료 예외 스택 노출</h3>
+            <p>예외 발생 시 서버 절대 경로 및 DB 호스트 스택 트레이스 반환</p>
+            <button class="btn-exploit" data-vuln="stack-leak">⚡ 에러 유도</button>
+          </div>
+
+          <!-- 20. Debug Telemetry -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-med">MEDIUM</span>
+              <span class="cwe-pill">CWE-497</span>
+            </div>
+            <h3>20. 바이탈 텔레메트리 노출</h3>
+            <p>ICU 환자 심박수 및 클라우드 내부 VPC 서브넷 디버그 노출</p>
+            <button class="btn-exploit" data-vuln="debug-telemetry">⚡ 텔레메트리 조회</button>
+          </div>
+
+          <!-- 21. Mass Assignment -->
+          <div class="vuln-card">
+            <div class="card-head">
+              <span class="badge-high">HIGH</span>
+              <span class="cwe-pill">CWE-915</span>
+            </div>
+            <h3>21. 프로필 수정 권한 상승</h3>
+            <p>req.body에 <code>{"role":"doctor"}</code> 주입 시 즉시 의사로 승격</p>
+            <button class="btn-exploit" data-vuln="mass-assignment">⚡ 의사로 승격</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Real-Time Inspection Terminal -->
+      <section class="panel terminal-panel">
+        <div class="terminal-header">
+          <div class="dots">
+            <span class="dot red"></span>
+            <span class="dot yellow"></span>
+            <span class="dot green"></span>
+          </div>
+          <span class="term-title">실시간 HTTP 패킷 응답 터미널 (Live Port 3004)</span>
+          <button class="btn-clear-term" id="btnClearTerminal">지우기</button>
+        </div>
+        <div class="terminal-body" id="termBody">
+          <p class="term-dim">[SYSTEM] MedixCloud EMR 21종 실시간 취약점 검증 터미널 준비 완료.</p>
+          <p class="term-dim">[INFO] 상단 매트릭스의 버튼을 누르면 실제 패킷이 발송되어 침투가 실증됩니다.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

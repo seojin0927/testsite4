@@ -1,0 +1,15 @@
+{
+  "name": "testsite4-medixcloud",
+  "version": "1.0.0",
+  "description": "MedixCloud Smart Healthcare & EMR Telemedicine Portal (21 Vulnerabilities Testbed)",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  }
+}
