@@ -74,6 +74,11 @@ export async function getPrescriptionById(req, res) {
       return res.status(404).json({ error: 'Prescription not found' })
     }
 
+    // 🛡️ [AegisVibe Security Fix: Patient Authorization Guard - CWE-639 Remediation]
+    if (rx.patientId !== req.user?.id && req.user?.role !== 'doctor') {
+      return res.status(403).json({ error: 'Forbidden: Access to other patients confidential prescriptions is prohibited' })
+    }
+
     // 🚨 BOLA / IDOR: Missing check: rx.patientId !== req.user?.id
     // Allows any authenticated patient (e.g. patient-101) to view narcotic prescription of patient-103!
     return res.json({
@@ -228,10 +233,12 @@ export async function generateAppointmentReceipt(req, res) {
  */
 export async function submitConsultationIntake(req, res) {
   const { patientId, symptoms } = req.body
+  // 🛡️ [AegisVibe Security Fix: Sanitize Stored User Input - CWE-79 Remediation]
+  const sanitizedSymptoms = String(symptoms || '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))
   const newNote = {
     id: `intake-${mockDatabase.intakeNotes.length + 1}`,
     patientId: patientId || 'patient-101',
-    symptoms: symptoms || '', // 🚨 Stored without HTML sanitization
+    symptoms: sanitizedSymptoms,
     submittedAt: new Date().toISOString(),
   }
   mockDatabase.intakeNotes.push(newNote)
@@ -423,12 +430,20 @@ export async function updatePatientProfile(req, res) {
  * Additional Sensitive Vault endpoint
  */
 export async function getBillingVault(req, res) {
+  // 🛡️ [AegisVibe Security Fix: Vault Access Control & Key Masking - CWE-312 Remediation]
+  if (req.user?.role !== 'doctor') {
+    return res.status(403).json({ error: 'Forbidden: Access to billing vault requires doctor credentials' })
+  }
+  const maskedPatients = mockDatabase.patients.map((p) => ({
+    ...p,
+    rrn: p.rrn ? p.rrn.replace(/\d(?=\d{4})/g, '*') : undefined,
+  }))
   return res.json({
     success: true,
-    patients: mockDatabase.patients,
+    patients: maskedPatients,
     config: {
-      AWS_ACCESS_KEY_ID: EHR_CONFIG.AWS_ACCESS_KEY_ID,
-      DATABASE_URL: EHR_CONFIG.DATABASE_URL,
+      AWS_ACCESS_KEY_ID: 'REDACTED_KMS_KEY',
+      DATABASE_URL: 'REDACTED_DATABASE_URL',
     },
   })
 }
