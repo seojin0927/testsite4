@@ -101,6 +101,7 @@ export async function approveControlledPrescription(req, res) {
     if (req.user?.role !== 'doctor') {
       return res.status(403).json({ error: 'Forbidden: Only licensed doctors are authorized to approve controlled narcotics' })
     }
+
     const { id } = req.params
     const rx = mockDatabase.prescriptions.find((p) => p.id === id)
 
@@ -108,7 +109,11 @@ export async function approveControlledPrescription(req, res) {
       return res.status(404).json({ error: 'Prescription not found' })
     }
 
-    // 🚨 BFLA: Missing req.user?.role === 'doctor' check!
+    // 🛡️ [AegisVibe Security Fix: Precondition FSM State Check - CWE-840 Remediation]
+    if (rx.status !== 'PENDING_APPROVAL') {
+      return res.status(400).json({ error: 'Invalid state transition: Prescription is not pending approval' })
+    }
+
     rx.status = 'APPROVED'
     rx.approvedBy = req.user?.name || 'Anonymous User'
     rx.approvedAt = new Date().toISOString()
@@ -135,27 +140,8 @@ export async function fetchDicomImaging(req, res) {
     }
 
     // 🛡️ [AegisVibe Security Fix: Block SSRF Outbound Destination - CWE-918 Remediation]
-    if (/^(http:\/\/)?(127\.0\.0\.1|localhost|169\.254\.169\.254|10\.|192\.168\.)/i.test(imageUrl)) {
+    if (/^(https?:\/\/)?(127\.0\.0\.1|localhost|169\.254\.169\.254|169\.254|10\.|192\.168\.)/i.test(imageUrl)) {
       return res.status(403).json({ error: 'Forbidden: SSRF attempt to internal network or cloud metadata blocked' })
-    }
-
-    // 🚨 SSRF: Fetches client-supplied URL directly
-    // Target PoC: http://169.254.169.254/latest/meta-data/
-    if (imageUrl.includes('169.254.169.254')) {
-      return res.json({
-        status: 'SSRF_TRIGGERED',
-        warning: 'Internal Cloud Metadata Exfiltrated!',
-        imdsResponse: {
-          amiId: 'ami-0948201medixprod',
-          instanceType: 'm5.2xlarge',
-          iamRole: 'MedixCloud-HIPAA-KMS-S3-FullAccess',
-          securityCredentials: {
-            AccessKeyId: 'ASIAIOSFODNN7EXAMPLE',
-            SecretAccessKey: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-            Token: 'AQoDYXdzEJr1...TokenSample',
-          },
-        },
-      })
     }
 
     return res.json({
@@ -186,15 +172,9 @@ export async function downloadScanFile(req, res) {
     }
 
     const scansDir = path.join(__dirname, '../data')
-    // 🚨 Path Traversal: path.join allows ../../ traversal escapes!
-    const targetPath = path.join(scansDir, filename)
-
-    if (filename.includes('package.json') || filename.includes('..')) {
-      const packagePath = path.join(__dirname, '../../package.json')
-      if (fs.existsSync(packagePath)) {
-        const content = fs.readFileSync(packagePath, 'utf8')
-        return res.type('text/plain').send(`[EXPLOITED PATH TRAVERSAL]:\n${content}`)
-      }
+    const safePath = path.resolve(scansDir, filename)
+    if (!safePath.startsWith(path.resolve(scansDir))) {
+      return res.status(400).json({ error: 'Bad Request: Path outside data directory' })
     }
 
     return res.type('text/plain').send(`[MedixCloud Scan File: ${filename}] (Binary Header OK)`)
@@ -260,12 +240,19 @@ export async function cancelAppointment(req, res) {
     if (secFetchSite === 'cross-site' || (!req.headers['x-requested-with'] && !req.headers['x-csrf-token'])) {
       return res.status(403).json({ error: 'Forbidden: Cross-site request rejected (CSRF Protection)' })
     }
+
     const { appointmentId } = req.body
-    // 🚨 CSRF: No CSRF token, no Sec-Fetch-Site validation
     const apt = mockDatabase.appointments.find((a) => a.id === appointmentId)
-    if (apt) {
-      apt.status = 'CANCELLED_BY_PATIENT'
+    if (!apt) {
+      return res.status(404).json({ error: 'Appointment not found' })
     }
+
+    // 🛡️ [AegisVibe Security Fix: Precondition FSM State Check - CWE-840 Remediation]
+    if (apt.status !== 'CONFIRMED') {
+      return res.status(400).json({ error: 'Invalid state transition: Appointment is not confirmed' })
+    }
+
+    apt.status = 'CANCELLED_BY_PATIENT'
 
     return res.json({
       success: true,
@@ -282,8 +269,8 @@ export async function cancelAppointment(req, res) {
  */
 export async function validateDoctorLicense(req, res) {
   const { licenseNumber } = req.body
-  // 🚨 ReDoS: Nested quantifier evil regex causes exponential backtracking!
-  const licenseRegex = /^([a-zA-Z0-9]+)*$/
+  // 🛡️ [AegisVibe Security Fix: Safe Regex Guard - CWE-1333 Remediation]
+  const licenseRegex = /^[a-zA-Z0-9]{1,64}$/
 
   const isValid = licenseRegex.test(licenseNumber || '')
   return res.json({ isValid, licenseNumber })
