@@ -24,8 +24,9 @@ export async function searchMedicalRecords(req, res) {
     }
 
     // 🚨 SQL Injection: Direct string interpolation into Raw SQL string
-    const sql = `SELECT * FROM patient_records WHERE patient_name LIKE '%${query}%' OR diagnosis LIKE '%${query}%'`
-    const result = await mockDatabase.query(sql)
+    // 🛡️ [AegisVibe Security Fix: Parameterized Prepared Statement - CWE-89 Remediation]
+    const sql = 'SELECT * FROM patient_records WHERE patient_name LIKE ? OR diagnosis LIKE ?'
+    const result = await mockDatabase.query(sql, [`%${query}%`, `%${query}%`])
 
     return res.json({
       success: true,
@@ -46,8 +47,9 @@ export async function lookupPrescriptionByCode(req, res) {
   try {
     const { rxCode } = req.body
     // 🚨 SQL Injection in POST Body
-    const sql = `SELECT * FROM prescriptions WHERE rx_code = '${rxCode}'`
-    const result = await mockDatabase.query(sql)
+    // 🛡️ [AegisVibe Security Fix: Parameterized Prepared Statement - CWE-89 Remediation]
+    const sql = 'SELECT * FROM prescriptions WHERE rx_code = ?'
+    const result = await mockDatabase.query(sql, [rxCode])
 
     return res.json({
       success: true,
@@ -90,6 +92,10 @@ export async function getPrescriptionById(req, res) {
  */
 export async function approveControlledPrescription(req, res) {
   try {
+    // 🛡️ [AegisVibe Security Fix: Doctor Role-Based Access Control (RBAC) - CWE-862 Remediation]
+    if (req.user?.role !== 'doctor') {
+      return res.status(403).json({ error: 'Forbidden: Only licensed doctors are authorized to approve controlled narcotics' })
+    }
     const { id } = req.params
     const rx = mockDatabase.prescriptions.find((p) => p.id === id)
 
@@ -121,6 +127,11 @@ export async function fetchDicomImaging(req, res) {
     const { imageUrl } = req.body
     if (!imageUrl) {
       return res.status(400).json({ error: 'imageUrl is required' })
+    }
+
+    // 🛡️ [AegisVibe Security Fix: Block SSRF Outbound Destination - CWE-918 Remediation]
+    if (/^(http:\/\/)?(127\.0\.0\.1|localhost|169\.254\.169\.254|10\.|192\.168\.)/i.test(imageUrl)) {
+      return res.status(403).json({ error: 'Forbidden: SSRF attempt to internal network or cloud metadata blocked' })
     }
 
     // 🚨 SSRF: Fetches client-supplied URL directly
@@ -164,6 +175,11 @@ export async function downloadScanFile(req, res) {
       return res.status(400).json({ error: 'file query parameter is required' })
     }
 
+    // 🛡️ [AegisVibe Security Fix: Directory Traversal Guard - CWE-22 Remediation]
+    if (filename.includes('..') || path.isAbsolute(filename) || !/^[a-zA-Z0-9_\-\.]+$/.test(filename)) {
+      return res.status(400).json({ error: 'Bad Request: Directory traversal or invalid filename sequence detected' })
+    }
+
     const scansDir = path.join(__dirname, '../data')
     // 🚨 Path Traversal: path.join allows ../../ traversal escapes!
     const targetPath = path.join(scansDir, filename)
@@ -196,7 +212,7 @@ export async function generateAppointmentReceipt(req, res) {
 <body style="font-family:sans-serif;padding:24px;background:#f8fafc;">
   <h2>🏥 MedixCloud 스마트 진료 예약 확인서</h2>
   <div style="background:#fff;padding:16px;border-radius:8px;border:1px solid #e2e8f0;">
-    <p>환자 성명: <span id="patient">${patientName}</span></p>
+    <p>환자 성명: <span id="patient">${String(patientName).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}</span></p>
     <p>진료 부서: <strong>순환기내과 (Cardiology)</strong></p>
     <p>담당 의사: <strong>Dr. 최현우 전문의</strong></p>
     <p>예약 일시: <strong>2026-09-12 14:00</strong></p>
@@ -232,6 +248,11 @@ export async function submitConsultationIntake(req, res) {
  */
 export async function cancelAppointment(req, res) {
   try {
+    // 🛡️ [AegisVibe Security Fix: Anti-CSRF Origin Verification - CWE-352 Remediation]
+    const secFetchSite = req.headers['sec-fetch-site']
+    if (secFetchSite === 'cross-site' || (!req.headers['x-requested-with'] && !req.headers['x-csrf-token'])) {
+      return res.status(403).json({ error: 'Forbidden: Cross-site request rejected (CSRF Protection)' })
+    }
     const { appointmentId } = req.body
     // 🚨 CSRF: No CSRF token, no Sec-Fetch-Site validation
     const apt = mockDatabase.appointments.find((a) => a.id === appointmentId)
@@ -267,6 +288,10 @@ export async function validateDoctorLicense(req, res) {
 export async function joinTelehealthSession(req, res) {
   const { redirectUrl } = req.query
   // 🚨 Open Redirect: Unvalidated external destination forward
+  // 🛡️ [AegisVibe Security Fix: Telehealth Redirect Guard - CWE-601 Remediation]
+  if (redirectUrl && (redirectUrl.startsWith('//') || (/^[a-zA-Z]+:\/\//.test(redirectUrl) && !redirectUrl.startsWith('http://localhost') && !redirectUrl.startsWith('https://medixcloud.io')))) {
+    return res.status(400).json({ error: 'Forbidden: Untrusted telehealth destination' })
+  }
   if (redirectUrl) {
     return res.redirect(redirectUrl)
   }
@@ -277,6 +302,11 @@ export async function joinTelehealthSession(req, res) {
  * 🚨 VULNERABILITY 16: Unprotected Cron Scheduled Endpoint (CWE-306 / API2:2023)
  */
 export async function executePatientBackup(req, res) {
+  // 🛡️ [AegisVibe Security Fix: Verify CRON_SECRET Header - CWE-306 Remediation]
+  const authHeader = req.headers.authorization
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET || 'medix-cron-secret-2026'}`) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid CRON_SECRET token' })
+  }
   // 🚨 Unprotected: Missing CRON_SECRET authorization header verification
   return res.json({
     status: 'BACKUP_TRIGGERED',
@@ -290,6 +320,14 @@ export async function executePatientBackup(req, res) {
  * 🚨 VULNERABILITY 17: Allocation of Resources Without Limits (No Rate Limit - CWE-770 / API4:2023)
  */
 export async function verifyTwoFactorOtp(req, res) {
+  // 🛡️ [AegisVibe Security Fix: Rate-Limiting Guard for 2FA OTP - CWE-770 Remediation]
+  if (!global.__otpAttempts) global.__otpAttempts = new Map();
+  const clientIp = req.ip || req.connection?.remoteAddress || 'client';
+  const attempts = (global.__otpAttempts.get(clientIp) || 0) + 1;
+  global.__otpAttempts.set(clientIp, attempts);
+  if (attempts > 5) {
+    return res.status(429).json({ success: false, error: 'Too Many Requests: 2FA trial rate limit exceeded. Please wait 15 minutes.' });
+  }
   const { patientId = 'patient-101', code } = req.body
   // 🚨 No Rate Limit: Unlimited brute-force attempts on 6-digit OTP code!
   const realCode = mockDatabase.otpCodes.get(patientId) || '491823'
@@ -304,6 +342,13 @@ export async function verifyTwoFactorOtp(req, res) {
  * 🚨 VULNERABILITY 18: Concurrency Race Condition (CWE-362)
  */
 export async function bookAppointmentSlot(req, res) {
+  // 🛡️ [AegisVibe Security Fix: Atomic Mutex Slot Locking - CWE-362 Remediation]
+  if (!global.__slotLocks) global.__slotLocks = new Set();
+  if (global.__slotLocks.has(req.body?.slot)) {
+    return res.status(409).json({ error: 'Conflict: Slot is currently being booked by another patient' });
+  }
+  global.__slotLocks.add(req.body?.slot);
+  setTimeout(() => global.__slotLocks.delete(req.body?.slot), 5000);
   const { slot, patientId, patientName } = req.body
   // 🚨 Race Condition: No mutex or atomic transaction locking
   const existing = mockDatabase.appointments.find((a) => a.slot === slot)
@@ -337,13 +382,9 @@ export async function parseRecordError(req, res) {
     return res.status(500).json({
       error: 'EMR Engine Failure',
       message: err.message,
-      stackTrace: err.stack,
-      serverEnvironment: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        cwd: process.cwd(),
-        dbHost: 'internal-db.medixcloud.local:5432',
-      },
+      // 🛡️ [AegisVibe Security Fix: Redact Internal Stack Trace & Secrets - CWE-209 Remediation]
+      stackTrace: undefined,
+      serverEnvironment: undefined,
     })
   }
 }
@@ -355,11 +396,8 @@ export async function getVitalTelemetry(req, res) {
   // 🚨 CWE-497: Exposes process.env and internal ICU network parameters
   return res.json({
     telemetry: mockDatabase.vitalTelemetry,
-    serverEnv: {
-      NODE_ENV: process.env.NODE_ENV || 'production',
-      AWS_REGION: EHR_CONFIG.AWS_REGION,
-      VPC_SUBNET: '10.240.12.0/24 (Medix-ICU-Subnet)',
-    },
+    // 🛡️ [AegisVibe Security Fix: Redact System Topology - CWE-497 Remediation]
+    serverEnv: undefined,
   })
 }
 
@@ -370,7 +408,9 @@ export async function updatePatientProfile(req, res) {
   // 🚨 Mass Assignment: Overwriting user object directly with untrusted req.body
   // Allows user to submit { "role": "doctor" } to escalate privileges!
   const user = req.user || { id: 'patient-101', name: '김민준', role: 'patient' }
-  Object.assign(user, req.body)
+  // 🛡️ [AegisVibe Security Fix: DTO Whitelist Guard - CWE-915 Remediation]
+  const allowed = ['name', 'phone', 'address']
+  for (const k of allowed) { if (req.body[k] !== undefined) user[k] = req.body[k] }
 
   return res.json({
     success: true,
